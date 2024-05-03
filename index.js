@@ -1,10 +1,14 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
+const cors = require("cors");
 const authRoutes = require("./routes/auth");
+const companyRoutes = require("./routes/company");
 require("dotenv").config();
 
 const app = express();
+
+app.use(cors());
 
 // Middleware
 app.use(bodyParser.json());
@@ -17,6 +21,7 @@ mongoose
 
 // Routes
 app.use("/auth", authRoutes);
+app.use("/company", companyRoutes);
 
 app.get("/", (req, res) => {
   res.send("Working");
