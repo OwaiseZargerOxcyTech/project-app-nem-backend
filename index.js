@@ -4,6 +4,9 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 const authRoutes = require("./routes/auth");
 const companyRoutes = require("./routes/company");
+const customerRoutes = require("./routes/customer");
+const itemRoutes = require("./routes/item");
+const invoiceRoutes = require("./routes/invoice");
 require("dotenv").config();
 
 const app = express();
@@ -22,6 +25,9 @@ mongoose
 // Routes
 app.use("/auth", authRoutes);
 app.use("/company", companyRoutes);
+app.use("/customer", customerRoutes);
+app.use("/item", itemRoutes);
+app.use("/invoice", invoiceRoutes);
 
 app.get("/", (req, res) => {
   res.send("Working");

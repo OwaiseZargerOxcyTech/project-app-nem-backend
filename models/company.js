@@ -10,6 +10,9 @@ const companySchema = new mongoose.Schema({
   state: { type: String, required: true },
   selected_company: String,
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", field: "userId" },
+  customers: [{ type: mongoose.Schema.Types.ObjectId, ref: "Customer" }],
+  items: [{ type: mongoose.Schema.Types.ObjectId, ref: "Item" }],
+  invoices: [{ type: mongoose.Schema.Types.ObjectId, ref: "Invoice" }],
 });
 
 module.exports = mongoose.model("Company", companySchema);

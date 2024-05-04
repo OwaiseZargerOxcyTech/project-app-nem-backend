@@ -129,26 +129,25 @@ exports.updateCompany = async (req, res) => {
 };
 
 exports.removeCompany = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.query;
   try {
     const companyToDelete = await Company.findById(id).populate("user");
-
     if (!companyToDelete) {
       return res.status(404).json({ message: "Company not found" });
     }
-
     if (companyToDelete.selected_company === "Y") {
       const otherCompany = await Company.findOne({
         user: companyToDelete.user._id,
         _id: { $ne: id },
       });
-
       if (otherCompany) {
         otherCompany.selected_company = "Y";
         await otherCompany.save();
       } else {
         const user = await User.findById(companyToDelete.user._id);
+
         user.company_existing = "N";
+
         await user.save();
       }
     }

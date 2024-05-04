@@ -14,5 +14,6 @@ router.post(
   companyController.updateSelectedCompany
 );
 router.put("/update-company", companyController.updateCompany);
+router.delete("/remove-company", companyController.removeCompany);
 
 module.exports = router;
