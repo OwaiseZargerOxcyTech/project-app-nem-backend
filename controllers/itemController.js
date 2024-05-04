@@ -27,6 +27,35 @@ exports.getItems = async (req, res) => {
   }
 };
 
+exports.getAllItems = async (req, res) => {
+  const { token } = req.query;
+  try {
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
+    const userId = decoded.id;
+
+    const companies = await Company.find({
+      user: userId,
+    });
+
+    if (!companies || companies.length === 0) {
+      return res.status(404).json({ message: "Companies not found" });
+    }
+
+    const itemPromises = companies.map((company) =>
+      Item.find({ company: company._id })
+    );
+
+    const items = await Promise.all(itemPromises);
+
+    const flattenedItems = items.flat();
+
+    res.status(200).json(flattenedItems);
+  } catch (err) {
+    console.log("err", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 exports.addItem = async (req, res) => {
   const { token, item_name, item_code, item_details, hsn_sac, qty, rate } =
     req.body;

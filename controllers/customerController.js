@@ -27,6 +27,35 @@ exports.getCustomers = async (req, res) => {
   }
 };
 
+exports.getAllCustomers = async (req, res) => {
+  const { token } = req.query;
+  try {
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
+    const userId = decoded.id;
+
+    const companies = await Company.find({
+      user: userId,
+    });
+
+    if (!companies || companies.length === 0) {
+      return res.status(404).json({ message: "Companies not found" });
+    }
+
+    const customerPromises = companies.map((company) =>
+      Customer.find({ company: company._id })
+    );
+
+    const customers = await Promise.all(customerPromises);
+
+    const flattenedCustomers = customers.flat();
+
+    res.status(200).json(flattenedCustomers);
+  } catch (err) {
+    console.log("err", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 exports.addCustomer = async (req, res) => {
   const { token, name, email, phone, customer_company, gstin, state, address } =
     req.body;
