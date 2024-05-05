@@ -7,5 +7,6 @@ router.post("/add-item", itemController.addItem);
 router.put("/update-item", itemController.updateItem);
 router.delete("/remove-item", itemController.removeItem);
 router.get("/get-all-items", itemController.getAllItems);
+router.get("/get-items-report", itemController.getItemsReport);
 
 module.exports = router;

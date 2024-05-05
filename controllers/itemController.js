@@ -126,3 +126,58 @@ exports.removeItem = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.getItemsReport = async (req, res) => {
+  let { token, companyId, itemId } = req.query;
+  try {
+    let companies;
+    if (companyId === undefined) {
+      companyId = "";
+    }
+    if (itemId === undefined) {
+      itemId = "";
+    }
+    if (companyId === "") {
+      const decoded = jwt.verify(token, process.env.SECRET_KEY);
+      const userId = decoded.id;
+
+      companies = await Company.find({ user: userId });
+    } else {
+      companies = await Company.find({ _id: companyId });
+    }
+
+    if (!companies || companies.length === 0) {
+      return res.status(404).json({ message: "Companies not found" });
+    }
+
+    let itemPromises;
+
+    if (itemId === "") {
+      itemPromises = companies.map((company) =>
+        Item.find({ company: company._id }).populate("company", "name")
+      );
+    } else {
+      itemPromises = companies.map((company) =>
+        Item.find({ company: company._id, _id: itemId }).populate(
+          "company",
+          "name"
+        )
+      );
+    }
+
+    const items = await Promise.all(itemPromises);
+
+    const flattenedItems = items.flat();
+
+    const itemsWithCompanyName = flattenedItems.map((item) => ({
+      ...item._doc,
+      companyName: item.company.name,
+      __typename: "ItemsWithCompanyNames",
+    }));
+
+    res.status(200).json(itemsWithCompanyName);
+  } catch (err) {
+    console.log("err", err);
+    res.status(500).json({ message: err.message });
+  }
+};

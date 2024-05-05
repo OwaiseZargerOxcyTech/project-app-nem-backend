@@ -150,3 +150,84 @@ exports.getInvoice = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.getInvoicesReport = async (req, res) => {
+  let { token, companyId, customerId, itemId } = req.query;
+  try {
+    let companies;
+    if (companyId === undefined) {
+      companyId = "";
+    }
+    if (customerId === undefined) {
+      customerId = "";
+    }
+    if (itemId === undefined) {
+      itemId = "";
+    }
+    if (companyId === "") {
+      const decoded = jwt.verify(token, process.env.SECRET_KEY);
+      const userId = decoded.id;
+
+      companies = await Company.find({ user: userId });
+    } else {
+      companies = await Company.find({ _id: companyId });
+    }
+
+    if (!companies || companies.length === 0) {
+      return res.status(404).json({ message: "Companies not found" });
+    }
+
+    let invoicePromises;
+
+    if (itemId === "" && customerId === "") {
+      invoicePromises = companies.map((company) =>
+        Invoice.find({ company: company._id })
+          .populate("company", "name")
+          .populate("customer", "name")
+          .populate("item")
+      );
+    } else if (itemId === "") {
+      invoicePromises = companies.map((company) =>
+        Invoice.find({ company: company._id, customer: customerId })
+          .populate("company", "name")
+          .populate("customer", "name")
+          .populate("item")
+      );
+    } else if (customerId === "") {
+      invoicePromises = companies.map((company) =>
+        Invoice.find({ company: company._id, item: itemId })
+          .populate("company", "name")
+          .populate("customer", "name")
+          .populate("item")
+      );
+    } else {
+      invoicePromises = companies.map((company) =>
+        Invoice.find({
+          company: company._id,
+          customer: customerId,
+          item: itemId,
+        })
+          .populate("company", "name")
+          .populate("customer", "name")
+          .populate("item")
+      );
+    }
+
+    const invoices = await Promise.all(invoicePromises);
+
+    const flattenedInvoices = invoices.flat();
+
+    const invoicesWithRelations = flattenedInvoices.map((invoice) => ({
+      ...invoice._doc,
+      rate: invoice.item.rate,
+      companyName: invoice.company.name,
+      itemName: invoice.item.item_name,
+      customerName: invoice.customer.name,
+      __typename: "InvoicesWithRelations",
+    }));
+
+    res.status(200).json(invoicesWithRelations);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

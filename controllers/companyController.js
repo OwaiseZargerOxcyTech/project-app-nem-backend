@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const Company = require("../models/company");
+const Item = require("../models/item");
+const Customer = require("../models/customer");
 require("dotenv").config();
 
 exports.getCompanyExistingFlag = async (req, res) => {
@@ -155,6 +157,48 @@ exports.removeCompany = async (req, res) => {
     await Company.findByIdAndDelete(id);
 
     res.status(200).json({ message: "Company removed successfully" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getCompaniesReport = async (req, res) => {
+  let { token, companyId, customerId, itemId } = req.query;
+  try {
+    let companies;
+    if (companyId === undefined) {
+      companyId = "";
+    }
+    if (customerId === undefined) {
+      customerId = "";
+    }
+    if (itemId === undefined) {
+      itemId = "";
+    }
+    if (companyId === "" && customerId === "" && itemId === "") {
+      const decoded = jwt.verify(token, process.env.SECRET_KEY);
+      const userId = decoded.id;
+
+      companies = await Company.find({ user: userId });
+    } else if (companyId === "" && customerId === "" && itemId !== "") {
+      const item = await Item.findOne({ _id: itemId });
+      companies = await Company.find({ _id: item.company._id });
+    } else if (companyId === "" && customerId !== "" && itemId === "") {
+      const customer = await Customer.findOne({ _id: customerId });
+      companies = await Company.find({ _id: customer.company._id });
+    } else if (companyId === "" && customerId !== "" && itemId !== "") {
+      const customer = await Customer.findOne({ _id: customerId });
+      companies = await Company.find({ _id: customer.company._id });
+    } else {
+      companies = await Company.find({ _id: companyId });
+    }
+
+    companies = companies.map((company) => ({
+      ...company._doc,
+      __typename: "Company",
+    }));
+
+    res.status(200).json(companies);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

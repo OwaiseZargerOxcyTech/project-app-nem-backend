@@ -127,3 +127,58 @@ exports.removeCustomer = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.getCustomersReport = async (req, res) => {
+  let { token, companyId, customerId } = req.query;
+  try {
+    let companies;
+    if (companyId === undefined) {
+      companyId = "";
+    }
+    if (customerId === undefined) {
+      customerId = "";
+    }
+    if (companyId === "") {
+      const decoded = jwt.verify(token, process.env.SECRET_KEY);
+      const userId = decoded.id;
+
+      companies = await Company.find({ user: userId });
+    } else {
+      companies = await Company.find({ _id: companyId });
+    }
+
+    if (!companies || companies.length === 0) {
+      return res.status(404).json({ message: "Companies not found" });
+    }
+
+    let customerPromises;
+
+    if (customerId === "") {
+      customerPromises = companies.map((company) =>
+        Customer.find({ company: company._id }).populate("company", "name")
+      );
+    } else {
+      customerPromises = companies.map((company) =>
+        Customer.find({ company: company._id, _id: customerId }).populate(
+          "company",
+          "name"
+        )
+      );
+    }
+
+    const customers = await Promise.all(customerPromises);
+
+    const flattenedCustomers = customers.flat();
+
+    const customersWithCompanyName = flattenedCustomers.map((customer) => ({
+      ...customer._doc,
+      companyName: customer.company.name,
+      __typename: "CustomersWithCompanyNames",
+    }));
+
+    res.status(200).json(customersWithCompanyName);
+  } catch (err) {
+    console.log("err", err);
+    res.status(500).json({ message: err.message });
+  }
+};
