@@ -131,3 +131,16 @@ exports.verifyEmail = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.getUser = async (req, res) => {
+  const { token } = req.query;
+  try {
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
+    const userId = decoded.id;
+
+    const user = await User.findOne({ _id: userId });
+    res.status(200).json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
