@@ -182,3 +182,92 @@ exports.getCustomersReport = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.getCustomersExport = async (req, res) => {
+  const { token } = req.query;
+  try {
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
+    const userId = decoded.id;
+
+    companies = await Company.find({ user: userId });
+
+    if (!companies || companies.length === 0) {
+      return res.status(404).json({ message: "Companies not found" });
+    }
+
+    let customerPromises;
+
+    customerPromises = companies.map((company) =>
+      Customer.find({ company: company._id }).populate("company", "name")
+    );
+
+    const customers = await Promise.all(customerPromises);
+
+    const flattenedCustomers = customers.flat();
+
+    const customersWithCompanyName = flattenedCustomers.map((customer) => ({
+      ...customer._doc,
+      companyName: customer.company.name,
+      __typename: "CustomersWithCompanyNames",
+    }));
+
+    res.status(200).json(customersWithCompanyName);
+  } catch (err) {
+    console.log("err", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.importCustomer = async (req, res) => {
+  const { token, input } = req.body;
+  const {
+    name,
+    email,
+    phone,
+    customer_company,
+    gstin,
+    state,
+    address,
+    companyName,
+  } = input;
+  try {
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
+    const userId = decoded.id;
+
+    const company = await Company.findOne({
+      user: userId,
+      name: companyName,
+    });
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    const existingCustomer = await Customer.findOne({
+      email,
+      company: company._id,
+    });
+
+    if (existingCustomer) {
+      return res.status(200).json({ message: "Customer already exists!" });
+    }
+
+    const newCustomer = new Customer({
+      name,
+      email,
+      phone,
+      customer_company,
+      gstin,
+      state,
+      address,
+      company: company._id,
+    });
+
+    await newCustomer.save();
+
+    res.status(201).json(newCustomer);
+  } catch (err) {
+    console.log("err", err);
+    res.status(500).json({ message: err.message });
+  }
+};

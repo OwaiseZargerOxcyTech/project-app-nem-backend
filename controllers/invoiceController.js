@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const Company = require("../models/company");
 const Customer = require("../models/customer");
 const Invoice = require("../models/invoice");
+const Item = require("../models/item");
 require("dotenv").config();
 
 exports.createInvoice = async (req, res) => {
@@ -227,6 +228,120 @@ exports.getInvoicesReport = async (req, res) => {
     }));
 
     res.status(200).json(invoicesWithRelations);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getInvoicesExport = async (req, res) => {
+  const { token } = req.query;
+  try {
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
+    const userId = decoded.id;
+
+    companies = await Company.find({ user: userId });
+
+    if (!companies || companies.length === 0) {
+      return res.status(404).json({ message: "Companies not found" });
+    }
+
+    let invoicePromises;
+
+    invoicePromises = companies.map((company) =>
+      Invoice.find({ company: company._id })
+        .populate("company", "name")
+        .populate("customer", "name")
+        .populate("item")
+    );
+
+    const invoices = await Promise.all(invoicePromises);
+
+    const flattenedInvoices = invoices.flat();
+
+    const invoicesWithRelations = flattenedInvoices.map((invoice) => ({
+      ...invoice._doc,
+      rate: invoice.item.rate,
+      companyName: invoice.company.name,
+      itemName: invoice.item.item_name,
+      customerName: invoice.customer.name,
+      __typename: "InvoicesWithRelations",
+    }));
+
+    res.status(200).json(invoicesWithRelations);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.importInvoice = async (req, res) => {
+  const { token, input } = req.body;
+  const {
+    amount,
+    companyName,
+    customerName,
+    discount,
+    due_date,
+    gst,
+    invoice_number,
+    invoice_date,
+    itemName,
+    qty,
+    total_amount,
+  } = input;
+  try {
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
+    const userId = decoded.id;
+
+    const company = await Company.findOne({ name: companyName, user: userId });
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    const item = await Item.findOne({
+      item_name: itemName,
+      company: company._id,
+    });
+
+    if (!item) {
+      return res.status(404).json({ message: "Item not found" });
+    }
+
+    const existingInvoice = await Invoice.findOne({
+      invoice_number,
+      item: item._id,
+    });
+
+    if (existingInvoice) {
+      return res.status(200).json({ message: "Invoice already exists!" });
+    }
+
+    const customer = await Customer.findOne({
+      name: customerName,
+      company: company._id,
+    });
+
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    const newInvoice = new Invoice({
+      invoice_number,
+      invoice_date: new Date(invoice_date).toISOString(),
+      due_date: new Date(due_date).toISOString(),
+      discount,
+      qty,
+      gst,
+      amount,
+      total_amount,
+      company: company._id,
+      customer: customer._id,
+      item: item._id,
+    });
+
+    await newInvoice.save();
+
+    res.status(201).json(newInvoice);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

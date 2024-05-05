@@ -203,3 +203,55 @@ exports.getCompaniesReport = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.getCompaniesExport = async (req, res) => {
+  const { token } = req.query;
+  try {
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
+    const userId = decoded.id;
+
+    let companies = await Company.find({ user: userId });
+
+    companies = companies.map((company) => ({
+      ...company._doc,
+      __typename: "Company",
+    }));
+
+    res.status(200).json(companies);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.importCompany = async (req, res) => {
+  const { token, input } = req.body;
+  const { name, gst_number, phone, address, email, state, selected_company } =
+    input;
+  try {
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
+    const userId = decoded.id;
+
+    const existingCompany = await Company.findOne({ name, user: userId });
+
+    if (existingCompany) {
+      return res.status(200).json({ message: "Company already exists!" });
+    }
+
+    const newCompany = new Company({
+      name,
+      gst_number,
+      phone,
+      email,
+      state,
+      address,
+      user: userId,
+      selected_company,
+    });
+
+    await newCompany.save();
+
+    res.status(201).json(newCompany);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
