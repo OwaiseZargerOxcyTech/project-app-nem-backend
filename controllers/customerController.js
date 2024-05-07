@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const Company = require("../models/company");
 const Customer = require("../models/customer");
+const Invoice = require("../models/invoice");
 require("dotenv").config();
 
 exports.getCustomers = async (req, res) => {
@@ -120,6 +121,12 @@ exports.updateCustomer = async (req, res) => {
 exports.removeCustomer = async (req, res) => {
   const { id } = req.query;
   try {
+    const invoices = await Invoice.find({ customer: id });
+    if (invoices.length > 0) {
+      return res
+        .status(200)
+        .json({ message: "Please first delete invoices related to customer!" });
+    }
     await Customer.findByIdAndDelete(id);
 
     res.status(200).json({ message: "Customer removed successfully" });
@@ -192,7 +199,7 @@ exports.getCustomersExport = async (req, res) => {
     companies = await Company.find({ user: userId });
 
     if (!companies || companies.length === 0) {
-      return res.status(404).json({ message: "Companies not found" });
+      return res.status(200).json({ message: "Companies not found" });
     }
 
     let customerPromises;

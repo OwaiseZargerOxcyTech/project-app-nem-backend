@@ -3,6 +3,7 @@ const User = require("../models/user");
 const Company = require("../models/company");
 const Item = require("../models/item");
 const Customer = require("../models/customer");
+const Invoice = require("../models/invoice");
 require("dotenv").config();
 
 exports.getCompanyExistingFlag = async (req, res) => {
@@ -133,6 +134,24 @@ exports.updateCompany = async (req, res) => {
 exports.removeCompany = async (req, res) => {
   const { id } = req.query;
   try {
+    const invoices = await Invoice.find({ company: id });
+    if (invoices.length > 0) {
+      return res
+        .status(200)
+        .json({ message: "Please first delete invoices related to company!" });
+    }
+    const items = await Item.find({ company: id });
+    if (items.length > 0) {
+      return res
+        .status(200)
+        .json({ message: "Please first delete items related to company!" });
+    }
+    const customers = await Customer.find({ company: id });
+    if (customers.length > 0) {
+      return res
+        .status(200)
+        .json({ message: "Please first delete customers related to company!" });
+    }
     const companyToDelete = await Company.findById(id).populate("user");
     if (!companyToDelete) {
       return res.status(404).json({ message: "Company not found" });
@@ -158,7 +177,7 @@ exports.removeCompany = async (req, res) => {
 
     res.status(200).json({ message: "Company removed successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(200).json({ message: err.message });
   }
 };
 

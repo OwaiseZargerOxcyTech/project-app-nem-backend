@@ -242,7 +242,7 @@ exports.getInvoicesExport = async (req, res) => {
     companies = await Company.find({ user: userId });
 
     if (!companies || companies.length === 0) {
-      return res.status(404).json({ message: "Companies not found" });
+      return res.status(200).json({ message: "Companies not found" });
     }
 
     let invoicePromises;
