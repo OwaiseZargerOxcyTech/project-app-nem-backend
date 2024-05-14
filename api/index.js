@@ -2,11 +2,11 @@ const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const authRoutes = require("./routes/auth");
-const companyRoutes = require("./routes/company");
-const customerRoutes = require("./routes/customer");
-const itemRoutes = require("./routes/item");
-const invoiceRoutes = require("./routes/invoice");
+const authRoutes = require("../routes/auth");
+const companyRoutes = require("../routes/company");
+const customerRoutes = require("../routes/customer");
+const itemRoutes = require("../routes/item");
+const invoiceRoutes = require("../routes/invoice");
 require("dotenv").config();
 
 const app = express();
