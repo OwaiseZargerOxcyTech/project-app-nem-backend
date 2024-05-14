@@ -11,7 +11,16 @@ require("dotenv").config();
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "https://project-app-nem-frontend.vercel.app",
+    allowedHeaders: ["Accept", "Content-Type", "Authorization"],
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+    credentials: true,
+  })
+);
 
 // Middleware
 app.use(bodyParser.json());
