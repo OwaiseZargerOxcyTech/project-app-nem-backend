@@ -8,6 +8,7 @@ exports.getItems = async (req, res) => {
   const { token } = req.query;
   try {
     const decoded = jwt.verify(token, process.env.SECRET_KEY);
+
     const userId = decoded.id;
 
     const company = await Company.findOne({
@@ -16,15 +17,18 @@ exports.getItems = async (req, res) => {
     });
 
     if (!company) {
-      return res.status(404).json({ message: "Company not found" });
+      res.status(404);
+      return res.json({ message: "Company not found" });
     }
 
     const items = await Item.find({ company: company._id });
 
-    res.status(200).json(items);
+    res.status(200);
+    res.json(items);
   } catch (err) {
     console.log("err", err);
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -75,10 +79,11 @@ exports.addItem = async (req, res) => {
     });
 
     if (existingItem) {
-      return res.status(409).json({ message: "Item already exists!" });
+      res.status(409);
+      return res.json({ message: "Item already exists!" });
     }
 
-    const newItem = new Item({
+    const newItem = await Item.create({
       item_name,
       item_code,
       item_details,
@@ -88,12 +93,12 @@ exports.addItem = async (req, res) => {
       company: company._id,
     });
 
-    await newItem.save();
-
-    res.status(201).json(newItem);
+    res.status(201);
+    res.json(newItem);
   } catch (err) {
     console.log("err", err);
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
