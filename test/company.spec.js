@@ -14,6 +14,8 @@ const {
   updateCompany,
   removeCompany,
   getCompaniesReport,
+  getCompaniesExport,
+  importCompany,
 } = require("../controllers/companyController");
 
 jest.mock("jsonwebtoken", () => ({
@@ -863,6 +865,188 @@ describe("getCompaniesReport", () => {
     });
 
     await getCompaniesReport(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ message: error.message });
+  });
+});
+
+describe("getCompaniesExport", () => {
+  let req, res;
+
+  beforeEach(() => {
+    req = {
+      query: {
+        token: "test-token",
+      },
+    };
+    res = {
+      status: jest.fn(),
+      json: jest.fn(),
+    };
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should return companies for the authenticated user", async () => {
+    const decodedToken = { id: "user-id" };
+    const companies = [
+      {
+        _id: "company-id",
+        name: "Test Company",
+        _doc: { _id: "company-id", name: "Test Company" },
+      },
+    ];
+
+    jwt.verify.mockReturnValue(decodedToken);
+    Company.find.mockResolvedValue(companies);
+
+    await getCompaniesExport(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "test-token",
+      process.env.SECRET_KEY
+    );
+    expect(Company.find).toHaveBeenCalledWith({ user: "user-id" });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      companies.map((company) => ({
+        ...company._doc,
+        __typename: "Company",
+      }))
+    );
+  });
+
+  it("should return 500 if there is an error", async () => {
+    const error = new Error("Test error");
+
+    jwt.verify.mockImplementation(() => {
+      throw error;
+    });
+
+    await getCompaniesExport(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ message: error.message });
+  });
+
+  it("should return 500 if Company.find throws an error", async () => {
+    const decodedToken = { id: "user-id" };
+    const error = new Error("Test error");
+
+    jwt.verify.mockReturnValue(decodedToken);
+    Company.find.mockImplementation(() => {
+      throw error;
+    });
+
+    await getCompaniesExport(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "test-token",
+      process.env.SECRET_KEY
+    );
+    expect(Company.find).toHaveBeenCalledWith({ user: "user-id" });
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ message: error.message });
+  });
+});
+
+describe("importCompany", () => {
+  let req, res;
+
+  beforeEach(() => {
+    req = {
+      body: {
+        token: "test-token",
+        input: {
+          name: "Test Company",
+          gst_number: "GST12345",
+          phone: "1234567890",
+          address: "Test Address",
+          email: "test@example.com",
+          state: "Test State",
+          selected_company: "Y",
+        },
+      },
+    };
+    res = {
+      status: jest.fn(),
+      json: jest.fn(),
+    };
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should create a new company if it does not already exist", async () => {
+    const decodedToken = { id: "user-id" };
+    const newCompany = {
+      _id: "company-id",
+      ...req.body.input,
+      user: "user-id",
+    };
+
+    jwt.verify.mockReturnValue(decodedToken);
+    Company.findOne.mockResolvedValue(null);
+    Company.create.mockResolvedValue(newCompany);
+
+    await importCompany(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "test-token",
+      process.env.SECRET_KEY
+    );
+    expect(Company.findOne).toHaveBeenCalledWith({
+      name: "Test Company",
+      user: "user-id",
+    });
+    expect(Company.create).toHaveBeenCalledWith({
+      ...req.body.input,
+      user: "user-id",
+    });
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(newCompany);
+  });
+
+  it("should return a 200 status if the company already exists", async () => {
+    const decodedToken = { id: "user-id" };
+    const existingCompany = {
+      _id: "existing-company-id",
+      ...req.body.input,
+      user: "user-id",
+    };
+
+    jwt.verify.mockReturnValue(decodedToken);
+    Company.findOne.mockResolvedValue(existingCompany);
+
+    await importCompany(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "test-token",
+      process.env.SECRET_KEY
+    );
+    expect(Company.findOne).toHaveBeenCalledWith({
+      name: "Test Company",
+      user: "user-id",
+    });
+    expect(Company.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      message: "Company already exists!",
+    });
+  });
+
+  it("should return 500 if there is an error", async () => {
+    const error = new Error("Test error");
+
+    jwt.verify.mockImplementation(() => {
+      throw error;
+    });
+
+    await importCompany(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ message: error.message });

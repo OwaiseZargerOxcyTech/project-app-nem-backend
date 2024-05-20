@@ -257,9 +257,11 @@ exports.getCompaniesExport = async (req, res) => {
       __typename: "Company",
     }));
 
-    res.status(200).json(companies);
+    res.status(200);
+    res.json(companies);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -274,10 +276,11 @@ exports.importCompany = async (req, res) => {
     const existingCompany = await Company.findOne({ name, user: userId });
 
     if (existingCompany) {
-      return res.status(200).json({ message: "Company already exists!" });
+      res.status(200);
+      return res.json({ message: "Company already exists!" });
     }
 
-    const newCompany = new Company({
+    const newCompany = await Company.create({
       name,
       gst_number,
       phone,
@@ -288,10 +291,10 @@ exports.importCompany = async (req, res) => {
       selected_company,
     });
 
-    await newCompany.save();
-
-    res.status(201).json(newCompany);
+    res.status(201);
+    res.json(newCompany);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
