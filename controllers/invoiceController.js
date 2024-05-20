@@ -18,7 +18,8 @@ exports.createInvoice = async (req, res) => {
     });
 
     if (!company) {
-      return res.status(404).json({ message: "Company not found" });
+      res.status(404);
+      return res.json({ message: "Company not found" });
     }
 
     const existingInvoice = await Invoice.findOne({
@@ -27,7 +28,8 @@ exports.createInvoice = async (req, res) => {
     });
 
     if (existingInvoice) {
-      return res.status(409).json({ message: "Invoice already exists!" });
+      res.status(409);
+      return res.json({ message: "Invoice already exists!" });
     }
 
     for (const input of inputs) {
@@ -43,7 +45,7 @@ exports.createInvoice = async (req, res) => {
         total_amount,
       } = input;
 
-      const invoice = new Invoice({
+      const invoice = await Invoice.create({
         invoice_number,
         invoice_date: new Date(),
         due_date: new Date(due_date).toISOString(),
@@ -57,13 +59,14 @@ exports.createInvoice = async (req, res) => {
         item: item_id,
       });
 
-      await invoice.save();
       invoices.push(invoice);
     }
 
-    res.status(200).json(invoices);
+    res.status(200);
+    res.json(invoices);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -79,7 +82,8 @@ exports.getInvoiceByCompany = async (req, res) => {
     });
 
     if (!company) {
-      return res.status(404).json({ message: "Company not found" });
+      res.status(404);
+      return res.json({ message: "Company not found" });
     }
 
     let invoices = await Invoice.find({ company: company._id });
@@ -91,9 +95,11 @@ exports.getInvoiceByCompany = async (req, res) => {
       })
     );
 
-    res.status(200).json(invoices);
+    res.status(200);
+    res.json(invoices);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -110,13 +116,16 @@ exports.removeInvoice = async (req, res) => {
     });
 
     if (!company) {
-      return res.status(404).json({ message: "Company not found" });
+      res.status(404);
+      return res.json({ message: "Company not found" });
     }
 
     await Invoice.deleteMany({ invoice_number, company: company._id });
-    res.status(200).json({ message: "Invoices removed successfully" });
+    res.status(200);
+    res.json({ message: "Invoices removed successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -132,7 +141,8 @@ exports.getInvoice = async (req, res) => {
     });
 
     if (!company) {
-      return res.status(404).json({ message: "Company not found" });
+      res.status(404);
+      return res.json({ message: "Company not found" });
     }
 
     const invoice = await Invoice.find({
@@ -144,11 +154,13 @@ exports.getInvoice = async (req, res) => {
       .populate("item");
 
     if (!invoice) {
-      return res.status(404).json({ message: "Company not found" });
+      return res.status(404).json({ message: "Invoice not found" });
     }
-    res.status(200).json(invoice);
+    res.status(200);
+    res.json(invoice);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
