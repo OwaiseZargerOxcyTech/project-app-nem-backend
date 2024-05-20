@@ -16,15 +16,18 @@ exports.getCustomers = async (req, res) => {
     });
 
     if (!company) {
-      return res.status(404).json({ message: "Company not found" });
+      res.status(404);
+      return res.json({ message: "Company not found" });
     }
 
     const customers = await Customer.find({ company: company._id });
 
-    res.status(200).json(customers);
+    res.status(200);
+    res.json(customers);
   } catch (err) {
     console.log("err", err);
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -39,7 +42,8 @@ exports.getAllCustomers = async (req, res) => {
     });
 
     if (!companies || companies.length === 0) {
-      return res.status(404).json({ message: "Companies not found" });
+      res.status(404);
+      return res.json({ message: "Companies not found" });
     }
 
     const customerPromises = companies.map((company) =>
@@ -50,10 +54,12 @@ exports.getAllCustomers = async (req, res) => {
 
     const flattenedCustomers = customers.flat();
 
-    res.status(200).json(flattenedCustomers);
+    res.status(200);
+    res.json(flattenedCustomers);
   } catch (err) {
     console.log("err", err);
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -75,10 +81,11 @@ exports.addCustomer = async (req, res) => {
     });
 
     if (existingCustomer) {
-      return res.status(409).json({ message: "Customer already exists!" });
+      res.status(409);
+      return res.json({ message: "Customer already exists!" });
     }
 
-    const newCustomer = new Customer({
+    const newCustomer = await Customer.create({
       name,
       email,
       phone,
@@ -89,12 +96,12 @@ exports.addCustomer = async (req, res) => {
       company: company._id,
     });
 
-    await newCustomer.save();
-
-    res.status(201).json(newCustomer);
+    res.status(201);
+    res.json(newCustomer);
   } catch (err) {
     console.log("err", err);
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -109,12 +116,15 @@ exports.updateCustomer = async (req, res) => {
     );
 
     if (!updatedCustomer) {
-      return res.status(404).json({ message: "Customer not found" });
+      res.status(404);
+      return res.json({ message: "Customer not found" });
     }
 
-    res.status(200).json(updatedCustomer);
+    res.status(200);
+    res.json(updatedCustomer);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -123,15 +133,18 @@ exports.removeCustomer = async (req, res) => {
   try {
     const invoices = await Invoice.find({ customer: id });
     if (invoices.length > 0) {
-      return res
-        .status(200)
-        .json({ message: "Please first delete invoices related to customer!" });
+      res.status(200);
+      return res.json({
+        message: "Please first delete invoices related to customer!",
+      });
     }
     await Customer.findByIdAndDelete(id);
 
-    res.status(200).json({ message: "Customer removed successfully" });
+    res.status(200);
+    res.json({ message: "Customer removed successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -155,7 +168,8 @@ exports.getCustomersReport = async (req, res) => {
     }
 
     if (!companies || companies.length === 0) {
-      return res.status(404).json({ message: "Companies not found" });
+      res.status(200);
+      return res.json({ message: "Companies not found" });
     }
 
     let customerPromises;
@@ -183,10 +197,12 @@ exports.getCustomersReport = async (req, res) => {
       __typename: "CustomersWithCompanyNames",
     }));
 
-    res.status(200).json(customersWithCompanyName);
+    res.status(200);
+    res.json(customersWithCompanyName);
   } catch (err) {
     console.log("err", err);
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -199,7 +215,8 @@ exports.getCustomersExport = async (req, res) => {
     companies = await Company.find({ user: userId });
 
     if (!companies || companies.length === 0) {
-      return res.status(200).json({ message: "Companies not found" });
+      res.status(200);
+      return res.json({ message: "Companies not found" });
     }
 
     let customerPromises;
@@ -218,10 +235,12 @@ exports.getCustomersExport = async (req, res) => {
       __typename: "CustomersWithCompanyNames",
     }));
 
-    res.status(200).json(customersWithCompanyName);
+    res.status(200);
+    res.json(customersWithCompanyName);
   } catch (err) {
     console.log("err", err);
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -247,7 +266,8 @@ exports.importCustomer = async (req, res) => {
     });
 
     if (!company) {
-      return res.status(404).json({ message: "Company not found" });
+      res.status(404);
+      return res.json({ message: "Company not found" });
     }
 
     const existingCustomer = await Customer.findOne({
@@ -256,10 +276,11 @@ exports.importCustomer = async (req, res) => {
     });
 
     if (existingCustomer) {
-      return res.status(200).json({ message: "Customer already exists!" });
+      res.status(200);
+      return res.json({ message: "Customer already exists!" });
     }
 
-    const newCustomer = new Customer({
+    const newCustomer = await Customer.create({
       name,
       email,
       phone,
@@ -270,11 +291,11 @@ exports.importCustomer = async (req, res) => {
       company: company._id,
     });
 
-    await newCustomer.save();
-
-    res.status(201).json(newCustomer);
+    res.status(201);
+    res.json(newCustomer);
   } catch (err) {
     console.log("err", err);
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };

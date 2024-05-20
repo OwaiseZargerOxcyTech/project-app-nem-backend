@@ -43,7 +43,8 @@ exports.getAllItems = async (req, res) => {
     });
 
     if (!companies || companies.length === 0) {
-      return res.status(404).json({ message: "Companies not found" });
+      res.status(404);
+      return res.json({ message: "Companies not found" });
     }
 
     const itemPromises = companies.map((company) =>
@@ -54,10 +55,12 @@ exports.getAllItems = async (req, res) => {
 
     const flattenedItems = items.flat();
 
-    res.status(200).json(flattenedItems);
+    res.status(200);
+    res.json(flattenedItems);
   } catch (err) {
     console.log("err", err);
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -113,12 +116,15 @@ exports.updateItem = async (req, res) => {
     );
 
     if (!updatedItem) {
-      return res.status(404).json({ message: "Item not found" });
+      res.status(404);
+      return res.json({ message: "Item not found" });
     }
 
-    res.status(200).json(updatedItem);
+    res.status(200);
+    res.json(updatedItem);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -127,15 +133,18 @@ exports.removeItem = async (req, res) => {
   try {
     const invoices = await Invoice.find({ item: id });
     if (invoices.length > 0) {
-      return res
-        .status(200)
-        .json({ message: "Please first delete invoices related to item!" });
+      res.status(200);
+      return res.json({
+        message: "Please first delete invoices related to item!",
+      });
     }
     await Item.findByIdAndDelete(id);
 
-    res.status(200).json({ message: "Item removed successfully" });
+    res.status(200);
+    res.json({ message: "Item removed successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -159,7 +168,8 @@ exports.getItemsReport = async (req, res) => {
     }
 
     if (!companies || companies.length === 0) {
-      return res.status(200).json({ message: "Companies not found" });
+      res.status(200);
+      return res.json({ message: "Companies not found" });
     }
 
     let itemPromises;
@@ -187,10 +197,12 @@ exports.getItemsReport = async (req, res) => {
       __typename: "ItemsWithCompanyNames",
     }));
 
-    res.status(200).json(itemsWithCompanyName);
+    res.status(200);
+    res.json(itemsWithCompanyName);
   } catch (err) {
     console.log("err", err);
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -203,7 +215,8 @@ exports.getItemsExport = async (req, res) => {
     companies = await Company.find({ user: userId });
 
     if (!companies || companies.length === 0) {
-      return res.status(404).json({ message: "Companies not found" });
+      res.status(404);
+      return res.json({ message: "Companies not found" });
     }
 
     let itemPromises;
@@ -222,10 +235,12 @@ exports.getItemsExport = async (req, res) => {
       __typename: "ItemsWithCompanyNames",
     }));
 
-    res.status(200).json(itemsWithCompanyName);
+    res.status(200);
+    res.json(itemsWithCompanyName);
   } catch (err) {
     console.log("err", err);
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -250,7 +265,8 @@ exports.importItem = async (req, res) => {
     });
 
     if (!company) {
-      return res.status(404).json({ message: "Company not found" });
+      res.status(404);
+      return res.json({ message: "Company not found" });
     }
 
     const existingItem = await Item.findOne({
@@ -259,10 +275,11 @@ exports.importItem = async (req, res) => {
     });
 
     if (existingItem) {
-      return res.status(200).json({ message: "Item already exists!" });
+      res.status(200);
+      return res.json({ message: "Item already exists!" });
     }
 
-    const newItem = new Item({
+    const newItem = await Item.create({
       item_name,
       item_code,
       item_details,
@@ -272,11 +289,11 @@ exports.importItem = async (req, res) => {
       company: company._id,
     });
 
-    await newItem.save();
-
-    res.status(201).json(newItem);
+    res.status(201);
+    res.json(newItem);
   } catch (err) {
     console.log("err", err);
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };

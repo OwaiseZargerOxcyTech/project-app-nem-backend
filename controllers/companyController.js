@@ -13,12 +13,15 @@ exports.getCompanyExistingFlag = async (req, res) => {
     const user = await User.findOne({ _id: decoded.id });
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      res.status(404);
+      return res.json({ message: "User not found" });
     }
 
-    res.status(200).json({ company_existing: user.company_existing });
+    res.status(200);
+    res.json({ company_existing: user.company_existing });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -33,12 +36,13 @@ exports.createCompany = async (req, res) => {
     const existingCompany = await Company.findOne({ name, user: userId });
 
     if (existingCompany) {
-      return res.status(409).json({ message: "Company already exists!" });
+      res.status(409);
+      return res.json({ message: "Company already exists!" });
     }
     await Company.updateMany({ user: userId }, { selected_company: "N" });
     user.company_existing = "Y";
     await user.save();
-    const newCompany = new Company({
+    const newCompany = await Company.create({
       name,
       gst_number,
       phone,
@@ -49,11 +53,11 @@ exports.createCompany = async (req, res) => {
       selected_company: "Y",
     });
 
-    await newCompany.save();
-
-    res.status(201).json(newCompany);
+    res.status(201);
+    res.json(newCompany);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -65,9 +69,11 @@ exports.getCompanies = async (req, res) => {
 
     const comapnies = await Company.find({ user: userId });
 
-    res.status(200).json(comapnies);
+    res.status(200);
+    res.json(comapnies);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -82,9 +88,11 @@ exports.getSelectedCompany = async (req, res) => {
       selected_company: "Y",
     });
 
-    res.status(200).json(selectedcompany);
+    res.status(200);
+    res.json(selectedcompany);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -106,9 +114,11 @@ exports.updateSelectedCompany = async (req, res) => {
       name: company_name,
     });
 
-    res.status(200).json(selectedcompany);
+    res.status(200);
+    res.json(selectedcompany);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -122,12 +132,15 @@ exports.updateCompany = async (req, res) => {
     );
 
     if (!updatedCompany) {
-      return res.status(404).json({ message: "Company not found" });
+      res.status(404);
+      return res.json({ message: "Company not found" });
     }
 
-    res.status(200).json(updatedCompany);
+    res.status(200);
+    res.json(updatedCompany);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -136,25 +149,29 @@ exports.removeCompany = async (req, res) => {
   try {
     const invoices = await Invoice.find({ company: id });
     if (invoices.length > 0) {
-      return res
-        .status(200)
-        .json({ message: "Please first delete invoices related to company!" });
+      res.status(200);
+      return res.json({
+        message: "Please first delete invoices related to company!",
+      });
     }
     const items = await Item.find({ company: id });
     if (items.length > 0) {
-      return res
-        .status(200)
-        .json({ message: "Please first delete items related to company!" });
+      res.status(200);
+      return res.json({
+        message: "Please first delete items related to company!",
+      });
     }
     const customers = await Customer.find({ company: id });
     if (customers.length > 0) {
-      return res
-        .status(200)
-        .json({ message: "Please first delete customers related to company!" });
+      res.status(200);
+      return res.json({
+        message: "Please first delete customers related to company!",
+      });
     }
     const companyToDelete = await Company.findById(id).populate("user");
     if (!companyToDelete) {
-      return res.status(404).json({ message: "Company not found" });
+      res.status(404);
+      return res.json({ message: "Company not found" });
     }
     if (companyToDelete.selected_company === "Y") {
       const otherCompany = await Company.findOne({
@@ -175,9 +192,11 @@ exports.removeCompany = async (req, res) => {
 
     await Company.findByIdAndDelete(id);
 
-    res.status(200).json({ message: "Company removed successfully" });
+    res.status(200);
+    res.json({ message: "Company removed successfully" });
   } catch (err) {
-    res.status(200).json({ message: err.message });
+    res.status(200);
+    res.json({ message: err.message });
   }
 };
 
@@ -217,9 +236,11 @@ exports.getCompaniesReport = async (req, res) => {
       __typename: "Company",
     }));
 
-    res.status(200).json(companies);
+    res.status(200);
+    res.json(companies);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
