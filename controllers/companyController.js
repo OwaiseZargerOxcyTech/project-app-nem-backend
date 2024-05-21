@@ -4,6 +4,8 @@ const Company = require("../models/company");
 const Item = require("../models/item");
 const Customer = require("../models/customer");
 const Invoice = require("../models/invoice");
+const redis = require("ioredis");
+const client = new redis();
 require("dotenv").config();
 
 exports.getCompanyExistingFlag = async (req, res) => {
@@ -53,6 +55,8 @@ exports.createCompany = async (req, res) => {
       selected_company: "Y",
     });
 
+    await client.del(`companiesof${userId}`);
+
     res.status(201);
     res.json(newCompany);
   } catch (err) {
@@ -67,10 +71,19 @@ exports.getCompanies = async (req, res) => {
     const decoded = jwt.verify(token, process.env.SECRET_KEY);
     const userId = decoded.id;
 
-    const comapnies = await Company.find({ user: userId });
+    const cachedData = await client.get(`companiesof${userId}`);
 
-    res.status(200);
-    res.json(comapnies);
+    if (cachedData) {
+      res.status(200);
+      res.json(JSON.parse(cachedData));
+    } else {
+      const companies = await Company.find({ user: userId });
+
+      await client.set(`companiesof${userId}`, JSON.stringify(companies));
+
+      res.status(200);
+      res.json(companies);
+    }
   } catch (err) {
     res.status(500);
     res.json({ message: err.message });
@@ -136,6 +149,10 @@ exports.updateCompany = async (req, res) => {
       return res.json({ message: "Company not found" });
     }
 
+    const userId = updatedCompany.user;
+
+    await client.del(`companiesof${userId}`);
+
     res.status(200);
     res.json(updatedCompany);
   } catch (err) {
@@ -191,6 +208,10 @@ exports.removeCompany = async (req, res) => {
     }
 
     await Company.findByIdAndDelete(id);
+
+    const userId = companyToDelete.user._id;
+
+    await client.del(`companiesof${userId}`);
 
     res.status(200);
     res.json({ message: "Company removed successfully" });

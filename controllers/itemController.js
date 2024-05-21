@@ -2,6 +2,8 @@ const jwt = require("jsonwebtoken");
 const Company = require("../models/company");
 const Item = require("../models/item");
 const Invoice = require("../models/invoice");
+const redis = require("ioredis");
+const client = new redis();
 require("dotenv").config();
 
 exports.getItems = async (req, res) => {
@@ -21,10 +23,19 @@ exports.getItems = async (req, res) => {
       return res.json({ message: "Company not found" });
     }
 
-    const items = await Item.find({ company: company._id });
+    const cachedData = await client.get(`itemsof${userId}${company._id}`);
 
-    res.status(200);
-    res.json(items);
+    if (cachedData) {
+      res.status(200);
+      res.json(JSON.parse(cachedData));
+    } else {
+      const items = await Item.find({ company: company._id });
+
+      await client.set(`itemsof${userId}${company._id}`, JSON.stringify(items));
+
+      res.status(200);
+      res.json(items);
+    }
   } catch (err) {
     console.log("err", err);
     res.status(500);
@@ -96,6 +107,8 @@ exports.addItem = async (req, res) => {
       company: company._id,
     });
 
+    await client.del(`itemsof${userId}${company._id}`);
+
     res.status(201);
     res.json(newItem);
   } catch (err) {
@@ -120,6 +133,14 @@ exports.updateItem = async (req, res) => {
       return res.json({ message: "Item not found" });
     }
 
+    const companyId = updatedItem.company._id;
+
+    const company = await Company.findOne({ _id: companyId });
+
+    const userId = company.user._id;
+
+    await client.del(`itemsof${userId}${companyId}`);
+
     res.status(200);
     res.json(updatedItem);
   } catch (err) {
@@ -138,7 +159,15 @@ exports.removeItem = async (req, res) => {
         message: "Please first delete invoices related to item!",
       });
     }
-    await Item.findByIdAndDelete(id);
+    const deletedItem = await Item.findByIdAndDelete(id);
+
+    const companyId = deletedItem.company._id;
+
+    const company = await Company.find({ _id: companyId });
+
+    const userId = company.user._id;
+
+    await client.del(`itemsof${userId}${companyId}`);
 
     res.status(200);
     res.json({ message: "Item removed successfully" });
