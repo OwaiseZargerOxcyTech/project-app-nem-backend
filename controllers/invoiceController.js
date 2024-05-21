@@ -187,7 +187,8 @@ exports.getInvoicesReport = async (req, res) => {
     }
 
     if (!companies || companies.length === 0) {
-      return res.status(404).json({ message: "Companies not found" });
+      res.status(404);
+      return res.json({ message: "Companies not found" });
     }
 
     let invoicePromises;
@@ -239,9 +240,11 @@ exports.getInvoicesReport = async (req, res) => {
       __typename: "InvoicesWithRelations",
     }));
 
-    res.status(200).json(invoicesWithRelations);
+    res.status(200);
+    res.json(invoicesWithRelations);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -254,7 +257,8 @@ exports.getInvoicesExport = async (req, res) => {
     companies = await Company.find({ user: userId });
 
     if (!companies || companies.length === 0) {
-      return res.status(200).json({ message: "Companies not found" });
+      res.status(200);
+      return res.json({ message: "Companies not found" });
     }
 
     let invoicePromises;
@@ -279,9 +283,11 @@ exports.getInvoicesExport = async (req, res) => {
       __typename: "InvoicesWithRelations",
     }));
 
-    res.status(200).json(invoicesWithRelations);
+    res.status(200);
+    res.json(invoicesWithRelations);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -307,7 +313,8 @@ exports.importInvoice = async (req, res) => {
     const company = await Company.findOne({ name: companyName, user: userId });
 
     if (!company) {
-      return res.status(404).json({ message: "Company not found" });
+      res.status(404);
+      return res.json({ message: "Company not found" });
     }
 
     const item = await Item.findOne({
@@ -316,7 +323,8 @@ exports.importInvoice = async (req, res) => {
     });
 
     if (!item) {
-      return res.status(404).json({ message: "Item not found" });
+      res.status(404);
+      return res.json({ message: "Item not found" });
     }
 
     const existingInvoice = await Invoice.findOne({
@@ -325,7 +333,8 @@ exports.importInvoice = async (req, res) => {
     });
 
     if (existingInvoice) {
-      return res.status(200).json({ message: "Invoice already exists!" });
+      res.status(200);
+      return res.json({ message: "Invoice already exists!" });
     }
 
     const customer = await Customer.findOne({
@@ -334,10 +343,11 @@ exports.importInvoice = async (req, res) => {
     });
 
     if (!customer) {
-      return res.status(404).json({ message: "Customer not found" });
+      res.status(404);
+      return res.json({ message: "Customer not found" });
     }
 
-    const newInvoice = new Invoice({
+    const newInvoice = await Invoice.create({
       invoice_number,
       invoice_date: new Date(invoice_date).toISOString(),
       due_date: new Date(due_date).toISOString(),
@@ -351,10 +361,10 @@ exports.importInvoice = async (req, res) => {
       item: item._id,
     });
 
-    await newInvoice.save();
-
-    res.status(201).json(newInvoice);
+    res.status(201);
+    res.json(newInvoice);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };

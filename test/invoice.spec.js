@@ -9,6 +9,9 @@ const {
   getInvoiceByCompany,
   removeInvoice,
   getInvoice,
+  getInvoicesReport,
+  getInvoicesExport,
+  importInvoice,
 } = require("../controllers/invoiceController");
 
 jest.mock("jsonwebtoken", () => ({
@@ -17,6 +20,7 @@ jest.mock("jsonwebtoken", () => ({
 
 jest.mock("../models/company", () => ({
   findOne: jest.fn(),
+  find: jest.fn(),
 }));
 
 jest.mock("../models/invoice", () => ({
@@ -27,6 +31,10 @@ jest.mock("../models/invoice", () => ({
 }));
 
 jest.mock("../models/customer", () => ({
+  findOne: jest.fn(),
+}));
+
+jest.mock("../models/item", () => ({
   findOne: jest.fn(),
 }));
 
@@ -507,5 +515,722 @@ describe("getInvoice", () => {
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ message: error.message });
+  });
+});
+
+describe("getInvoicesReport", () => {
+  let req, res;
+
+  beforeEach(() => {
+    req = {
+      query: {},
+    };
+    res = {
+      status: jest.fn(),
+      json: jest.fn(),
+    };
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("No companyId, customerId, or itemId provided", async () => {
+    req.query.token = "validToken";
+    const invoices = [
+      {
+        _id: "invoiceId",
+        item: { rate: 10, item_name: "itemName" },
+        company: { name: "companyName" },
+        customer: { name: "customerName" },
+        _doc: { _id: "invoiceId" },
+      },
+    ];
+    jwt.verify.mockReturnValue({ id: "userId" });
+    Company.find.mockResolvedValue([{ _id: "companyId1" }]);
+
+    Invoice.find.mockReturnValue({
+      populate: jest.fn().mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(invoices),
+        }),
+      }),
+    });
+
+    await getInvoicesReport(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validToken",
+      process.env.SECRET_KEY
+    );
+    expect(Company.find).toHaveBeenCalledWith({ user: "userId" });
+    expect(Invoice.find).toHaveBeenCalledWith({ company: "companyId1" });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      invoices.map((invoice) => ({
+        ...invoice._doc,
+        rate: invoice.item.rate,
+        companyName: invoice.company.name,
+        itemName: invoice.item.item_name,
+        customerName: invoice.customer.name,
+        __typename: "InvoicesWithRelations",
+      }))
+    );
+  });
+
+  test("No companyId, itemId provided but customerId provided", async () => {
+    req.query.token = "validToken";
+    req.query.customerId = "customerId1";
+    const invoices = [
+      {
+        _id: "invoiceId",
+        item: { rate: 10, item_name: "itemName" },
+        company: { name: "companyName" },
+        customer: { name: "customerName" },
+        _doc: { _id: "invoiceId" },
+      },
+    ];
+    jwt.verify.mockReturnValue({ id: "userId" });
+    Company.find.mockResolvedValue([{ _id: "companyId1" }]);
+
+    Invoice.find.mockReturnValue({
+      populate: jest.fn().mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(invoices),
+        }),
+      }),
+    });
+
+    await getInvoicesReport(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validToken",
+      process.env.SECRET_KEY
+    );
+    expect(Company.find).toHaveBeenCalledWith({ user: "userId" });
+    expect(Invoice.find).toHaveBeenCalledWith({
+      company: "companyId1",
+      customer: "customerId1",
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      invoices.map((invoice) => ({
+        ...invoice._doc,
+        rate: invoice.item.rate,
+        companyName: invoice.company.name,
+        itemName: invoice.item.item_name,
+        customerName: invoice.customer.name,
+        __typename: "InvoicesWithRelations",
+      }))
+    );
+  });
+
+  test("No companyId, customerId provided but itemId provided", async () => {
+    req.query.token = "validToken";
+    req.query.itemId = "itemId1";
+    const invoices = [
+      {
+        _id: "invoiceId",
+        item: { rate: 10, item_name: "itemName" },
+        company: { name: "companyName" },
+        customer: { name: "customerName" },
+        _doc: { _id: "invoiceId" },
+      },
+    ];
+    jwt.verify.mockReturnValue({ id: "userId" });
+    Company.find.mockResolvedValue([{ _id: "companyId1" }]);
+
+    Invoice.find.mockReturnValue({
+      populate: jest.fn().mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(invoices),
+        }),
+      }),
+    });
+
+    await getInvoicesReport(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validToken",
+      process.env.SECRET_KEY
+    );
+    expect(Company.find).toHaveBeenCalledWith({ user: "userId" });
+    expect(Invoice.find).toHaveBeenCalledWith({
+      company: "companyId1",
+      item: "itemId1",
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      invoices.map((invoice) => ({
+        ...invoice._doc,
+        rate: invoice.item.rate,
+        companyName: invoice.company.name,
+        itemName: invoice.item.item_name,
+        customerName: invoice.customer.name,
+        __typename: "InvoicesWithRelations",
+      }))
+    );
+  });
+
+  test("No companyId provided but itemId and customerId provided", async () => {
+    req.query.token = "validToken";
+    req.query.customerId = "customerId1";
+    req.query.itemId = "itemId1";
+    const invoices = [
+      {
+        _id: "invoiceId",
+        item: { rate: 10, item_name: "itemName" },
+        company: { name: "companyName" },
+        customer: { name: "customerName" },
+        _doc: { _id: "invoiceId" },
+      },
+    ];
+    jwt.verify.mockReturnValue({ id: "userId" });
+    Company.find.mockResolvedValue([{ _id: "companyId1" }]);
+
+    Invoice.find.mockReturnValue({
+      populate: jest.fn().mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(invoices),
+        }),
+      }),
+    });
+
+    await getInvoicesReport(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validToken",
+      process.env.SECRET_KEY
+    );
+    expect(Company.find).toHaveBeenCalledWith({ user: "userId" });
+    expect(Invoice.find).toHaveBeenCalledWith({
+      company: "companyId1",
+      customer: "customerId1",
+      item: "itemId1",
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      invoices.map((invoice) => ({
+        ...invoice._doc,
+        rate: invoice.item.rate,
+        companyName: invoice.company.name,
+        itemName: invoice.item.item_name,
+        customerName: invoice.customer.name,
+        __typename: "InvoicesWithRelations",
+      }))
+    );
+  });
+
+  test("CompanyId provided but itemId and customerId not provided", async () => {
+    req.query.companyId = "companyId1";
+    const invoices = [
+      {
+        _id: "invoiceId",
+        item: { rate: 10, item_name: "itemName" },
+        company: { name: "companyName" },
+        customer: { name: "customerName" },
+        _doc: { _id: "invoiceId" },
+      },
+    ];
+
+    Company.find.mockResolvedValue([{ _id: "companyId1" }]);
+
+    Invoice.find.mockReturnValue({
+      populate: jest.fn().mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(invoices),
+        }),
+      }),
+    });
+
+    await getInvoicesReport(req, res);
+
+    expect(Company.find).toHaveBeenCalledWith({ _id: "companyId1" });
+    expect(Invoice.find).toHaveBeenCalledWith({ company: "companyId1" });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      invoices.map((invoice) => ({
+        ...invoice._doc,
+        rate: invoice.item.rate,
+        companyName: invoice.company.name,
+        itemName: invoice.item.item_name,
+        customerName: invoice.customer.name,
+        __typename: "InvoicesWithRelations",
+      }))
+    );
+  });
+
+  test("CompanyId and customerId provided but itemId not provided", async () => {
+    req.query.companyId = "companyId1";
+    req.query.customerId = "customerId1";
+    const invoices = [
+      {
+        _id: "invoiceId",
+        item: { rate: 10, item_name: "itemName" },
+        company: { name: "companyName" },
+        customer: { name: "customerName" },
+        _doc: { _id: "invoiceId" },
+      },
+    ];
+
+    Company.find.mockResolvedValue([{ _id: "companyId1" }]);
+
+    Invoice.find.mockReturnValue({
+      populate: jest.fn().mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(invoices),
+        }),
+      }),
+    });
+
+    await getInvoicesReport(req, res);
+
+    expect(Company.find).toHaveBeenCalledWith({ _id: "companyId1" });
+    expect(Invoice.find).toHaveBeenCalledWith({
+      company: "companyId1",
+      customer: "customerId1",
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      invoices.map((invoice) => ({
+        ...invoice._doc,
+        rate: invoice.item.rate,
+        companyName: invoice.company.name,
+        itemName: invoice.item.item_name,
+        customerName: invoice.customer.name,
+        __typename: "InvoicesWithRelations",
+      }))
+    );
+  });
+
+  test("CompanyId and itemId provided but customerId not provided", async () => {
+    req.query.companyId = "companyId1";
+    req.query.itemId = "itemId1";
+    const invoices = [
+      {
+        _id: "invoiceId",
+        item: { rate: 10, item_name: "itemName" },
+        company: { name: "companyName" },
+        customer: { name: "customerName" },
+      },
+    ];
+
+    Company.find.mockResolvedValue([{ _id: "companyId1" }]);
+
+    Invoice.find.mockReturnValue({
+      populate: jest.fn().mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(invoices),
+        }),
+      }),
+    });
+
+    await getInvoicesReport(req, res);
+
+    expect(Company.find).toHaveBeenCalledWith({ _id: "companyId1" });
+    expect(Invoice.find).toHaveBeenCalledWith({
+      company: "companyId1",
+      item: "itemId1",
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      invoices.map((invoice) => ({
+        ...invoice._doc,
+        rate: invoice.item.rate,
+        companyName: invoice.company.name,
+        itemName: invoice.item.item_name,
+        customerName: invoice.customer.name,
+        __typename: "InvoicesWithRelations",
+      }))
+    );
+  });
+
+  test("CompanyId, customerId, itemId all provided", async () => {
+    req.query.companyId = "companyId1";
+    req.query.customerId = "customerId1";
+    req.query.itemId = "itemId1";
+    const invoices = [
+      {
+        _id: "invoiceId",
+        item: { rate: 10, item_name: "itemName" },
+        company: { name: "companyName" },
+        customer: { name: "customerName" },
+      },
+    ];
+
+    Company.find.mockResolvedValue([{ _id: "companyId1" }]);
+
+    Invoice.find.mockReturnValue({
+      populate: jest.fn().mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(invoices),
+        }),
+      }),
+    });
+
+    await getInvoicesReport(req, res);
+
+    expect(Company.find).toHaveBeenCalledWith({ _id: "companyId1" });
+    expect(Invoice.find).toHaveBeenCalledWith({
+      company: "companyId1",
+      customer: "customerId1",
+      item: "itemId1",
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      invoices.map((invoice) => ({
+        ...invoice._doc,
+        rate: invoice.item.rate,
+        companyName: invoice.company.name,
+        itemName: invoice.item.item_name,
+        customerName: invoice.customer.name,
+        __typename: "InvoicesWithRelations",
+      }))
+    );
+  });
+
+  test("Companies does not exist when companyId is not provided", async () => {
+    req.query.token = "validToken";
+    jwt.verify.mockReturnValue({ id: "userId" });
+    Company.find.mockResolvedValue([]);
+
+    await getInvoicesReport(req, res);
+
+    expect(Company.find).toHaveBeenCalledWith({ user: "userId" });
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ message: "Companies not found" });
+  });
+
+  test("Companies does not exist when companyId is provided", async () => {
+    req.query.companyId = "companyId1";
+
+    Company.find.mockResolvedValue([]);
+
+    await getInvoicesReport(req, res);
+
+    expect(Company.find).toHaveBeenCalledWith({ _id: "companyId1" });
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ message: "Companies not found" });
+  });
+
+  test("Error scenario", async () => {
+    req.query.token = "invalidToken";
+    jwt.verify.mockImplementation(() => {
+      throw new Error("Invalid token");
+    });
+
+    await getInvoicesReport(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ message: "Invalid token" });
+  });
+});
+
+describe("getInvoicesExport", () => {
+  let req, res;
+
+  beforeEach(() => {
+    req = {
+      query: {},
+    };
+    res = {
+      status: jest.fn(),
+      json: jest.fn(),
+    };
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("Valid token, companies found, invoices found", async () => {
+    req.query.token = "validToken";
+    const invoices = [
+      {
+        _id: "invoiceId",
+        item: { rate: 10, item_name: "itemName" },
+        company: { name: "companyName" },
+        customer: { name: "customerName" },
+        _doc: { _id: "invoiceId" },
+      },
+    ];
+    jwt.verify.mockReturnValue({ id: "userId" });
+    Company.find.mockResolvedValue([{ _id: "companyId1" }]);
+
+    Invoice.find.mockReturnValue({
+      populate: jest.fn().mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(invoices),
+        }),
+      }),
+    });
+
+    await getInvoicesExport(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validToken",
+      process.env.SECRET_KEY
+    );
+    expect(Company.find).toHaveBeenCalledWith({ user: "userId" });
+    expect(Invoice.find).toHaveBeenCalledWith({ company: "companyId1" });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      invoices.map((invoice) => ({
+        ...invoice._doc,
+        rate: invoice.item.rate,
+        companyName: invoice.company.name,
+        itemName: invoice.item.item_name,
+        customerName: invoice.customer.name,
+        __typename: "InvoicesWithRelations",
+      }))
+    );
+  });
+
+  test("Valid token, companies not found", async () => {
+    req.query.token = "validToken";
+    jwt.verify.mockReturnValue({ id: "userId" });
+    Company.find.mockResolvedValue([]);
+
+    await getInvoicesExport(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validToken",
+      process.env.SECRET_KEY
+    );
+    expect(Company.find).toHaveBeenCalledWith({ user: "userId" });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ message: "Companies not found" });
+  });
+
+  test("Invalid token , error scneario", async () => {
+    req.query.token = "invalidToken";
+    jwt.verify.mockImplementation(() => {
+      throw new Error("Invalid token");
+    });
+
+    await getInvoicesExport(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "invalidToken",
+      process.env.SECRET_KEY
+    );
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ message: "Invalid token" });
+  });
+});
+
+describe("importInvoice", () => {
+  let req, res;
+
+  beforeEach(() => {
+    req = {
+      body: {
+        token: "validToken",
+        input: {
+          amount: 100,
+          companyName: "companyName",
+          customerName: "customerName",
+          discount: 10,
+          due_date: "2023-12-31",
+          gst: 5,
+          invoice_number: "INV123",
+          invoice_date: "2023-12-01",
+          itemName: "itemName",
+          qty: 2,
+          total_amount: 200,
+        },
+      },
+    };
+    res = {
+      status: jest.fn(),
+      json: jest.fn(),
+    };
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("Successful import of a new invoice", async () => {
+    const newinvoice = {
+      _id: "newInvoiceId",
+      amount: 100,
+      companyName: "companyName",
+      customerName: "customerName",
+      discount: 10,
+      due_date: "2023-12-31",
+      gst: 5,
+      invoice_number: "INV123",
+      invoice_date: "2023-12-01",
+      itemName: "itemName",
+      qty: 2,
+      total_amount: 200,
+    };
+
+    jwt.verify.mockReturnValue({ id: "userId" });
+    Company.findOne.mockResolvedValue({ _id: "companyId" });
+    Item.findOne.mockResolvedValue({ _id: "itemId" });
+    Invoice.findOne.mockResolvedValue(null);
+    Customer.findOne.mockResolvedValue({ _id: "customerId" });
+    Invoice.create.mockResolvedValue(newinvoice);
+
+    await importInvoice(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validToken",
+      process.env.SECRET_KEY
+    );
+    expect(Company.findOne).toHaveBeenCalledWith({
+      name: "companyName",
+      user: "userId",
+    });
+    expect(Item.findOne).toHaveBeenCalledWith({
+      item_name: "itemName",
+      company: "companyId",
+    });
+    expect(Invoice.findOne).toHaveBeenCalledWith({
+      invoice_number: "INV123",
+      item: "itemId",
+    });
+    expect(Customer.findOne).toHaveBeenCalledWith({
+      name: "customerName",
+      company: "companyId",
+    });
+    expect(Invoice.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        invoice_number: "INV123",
+        invoice_date: new Date("2023-12-01").toISOString(),
+        due_date: new Date("2023-12-31").toISOString(),
+        discount: 10,
+        qty: 2,
+        gst: 5,
+        amount: 100,
+        total_amount: 200,
+        company: "companyId",
+        customer: "customerId",
+        item: "itemId",
+      })
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(newinvoice);
+  });
+
+  test("Company not found", async () => {
+    jwt.verify.mockReturnValue({ id: "userId" });
+    Company.findOne.mockResolvedValue(null);
+
+    await importInvoice(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validToken",
+      process.env.SECRET_KEY
+    );
+    expect(Company.findOne).toHaveBeenCalledWith({
+      name: "companyName",
+      user: "userId",
+    });
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ message: "Company not found" });
+  });
+
+  test("Item not found", async () => {
+    jwt.verify.mockReturnValue({ id: "userId" });
+    Company.findOne.mockResolvedValue({ _id: "companyId" });
+    Item.findOne.mockResolvedValue(null);
+
+    await importInvoice(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validToken",
+      process.env.SECRET_KEY
+    );
+    expect(Company.findOne).toHaveBeenCalledWith({
+      name: "companyName",
+      user: "userId",
+    });
+    expect(Item.findOne).toHaveBeenCalledWith({
+      item_name: "itemName",
+      company: "companyId",
+    });
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ message: "Item not found" });
+  });
+
+  test("Invoice already exists", async () => {
+    jwt.verify.mockReturnValue({ id: "userId" });
+    Company.findOne.mockResolvedValue({ _id: "companyId" });
+    Item.findOne.mockResolvedValue({ _id: "itemId" });
+    Invoice.findOne.mockResolvedValue({ _id: "existingInvoiceId" });
+
+    await importInvoice(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validToken",
+      process.env.SECRET_KEY
+    );
+    expect(Company.findOne).toHaveBeenCalledWith({
+      name: "companyName",
+      user: "userId",
+    });
+    expect(Item.findOne).toHaveBeenCalledWith({
+      item_name: "itemName",
+      company: "companyId",
+    });
+    expect(Invoice.findOne).toHaveBeenCalledWith({
+      invoice_number: "INV123",
+      item: "itemId",
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      message: "Invoice already exists!",
+    });
+  });
+
+  test("Customer not found", async () => {
+    jwt.verify.mockReturnValue({ id: "userId" });
+    Company.findOne.mockResolvedValue({ _id: "companyId" });
+    Item.findOne.mockResolvedValue({ _id: "itemId" });
+    Invoice.findOne.mockResolvedValue(null);
+    Customer.findOne.mockResolvedValue(null);
+
+    await importInvoice(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validToken",
+      process.env.SECRET_KEY
+    );
+    expect(Company.findOne).toHaveBeenCalledWith({
+      name: "companyName",
+      user: "userId",
+    });
+    expect(Item.findOne).toHaveBeenCalledWith({
+      item_name: "itemName",
+      company: "companyId",
+    });
+    expect(Invoice.findOne).toHaveBeenCalledWith({
+      invoice_number: "INV123",
+      item: "itemId",
+    });
+    expect(Customer.findOne).toHaveBeenCalledWith({
+      name: "customerName",
+      company: "companyId",
+    });
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ message: "Customer not found" });
+  });
+
+  test("Error scenario", async () => {
+    jwt.verify.mockImplementation(() => {
+      throw new Error("Invalid token");
+    });
+
+    await importInvoice(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validToken",
+      process.env.SECRET_KEY
+    );
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ message: "Invalid token" });
   });
 });
