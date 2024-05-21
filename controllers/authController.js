@@ -13,7 +13,8 @@ exports.register = async (req, res) => {
     // Check if the user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+      res.status(400);
+      return res.json({ message: "User already exists" });
     }
 
     // Hash password
@@ -22,7 +23,7 @@ exports.register = async (req, res) => {
     const otp = crypto.randomInt(100000, 999999).toString();
 
     // Create new user
-    const newUser = new User({
+    const newUser = await User.create({
       username,
       email,
       password: hashedPassword,
@@ -30,7 +31,6 @@ exports.register = async (req, res) => {
       verifyotp: otp,
       company_existing: "N",
     });
-    await newUser.save();
 
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -54,12 +54,12 @@ exports.register = async (req, res) => {
 
     await transporter.sendMail(mailOptions);
 
-    res
-      .status(201)
-      .json({ message: "Sent email verification OTP successfully" });
+    res.status(201);
+    res.json({ message: "Sent email verification OTP successfully" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500);
+    res.json({ message: "Internal server error" });
   }
 };
 
@@ -72,17 +72,20 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (user.verified === "N") {
-      return res.status(200).json({ message: "User Email not verified" });
+      res.status(200);
+      return res.json({ message: "User Email not verified" });
     }
 
     if (!user) {
-      return res.status(200).json({ message: "Invalid credentials" });
+      res.status(200);
+      return res.json({ message: "Invalid credentials" });
     }
 
     // Check password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(200).json({ message: "Invalid credentials" });
+      res.status(200);
+      return res.json({ message: "Invalid credentials" });
     }
 
     // Generate JWT token
@@ -97,7 +100,8 @@ exports.login = async (req, res) => {
     res.json({ token });
   } catch (error) {
     console.error(error);
-    res.status(200).json({ message: error.message });
+    res.status(200);
+    res.json({ message: error.message });
   }
 };
 
@@ -106,9 +110,11 @@ exports.login = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find({}, "username"); // Retrieve only usernames
-    res.status(200).json(users);
+    res.status(200);
+    res.json(users);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -123,12 +129,15 @@ exports.verifyEmail = async (req, res) => {
     );
 
     if (!user) {
-      return res.status(200).json({ message: "Invalid or expired OTP" });
+      res.status(200);
+      return res.json({ message: "Invalid or expired OTP" });
     }
 
-    return res.status(200).json({ message: "User verified successfully!" });
+    res.status(200);
+    return res.json({ message: "User verified successfully!" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
 
@@ -139,8 +148,10 @@ exports.getUser = async (req, res) => {
     const userId = decoded.id;
 
     const user = await User.findOne({ _id: userId });
-    res.status(200).json(user);
+    res.status(200);
+    res.json(user);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500);
+    res.json({ message: err.message });
   }
 };
