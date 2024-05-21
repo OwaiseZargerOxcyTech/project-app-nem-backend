@@ -2,6 +2,8 @@ const jwt = require("jsonwebtoken");
 const Company = require("../models/company");
 const Customer = require("../models/customer");
 const Invoice = require("../models/invoice");
+const redis = require("ioredis");
+const client = new redis();
 require("dotenv").config();
 
 exports.getCustomers = async (req, res) => {
@@ -20,10 +22,22 @@ exports.getCustomers = async (req, res) => {
       return res.json({ message: "Company not found" });
     }
 
-    const customers = await Customer.find({ company: company._id });
+    const cachedData = await client.get(`customersof${userId}${company._id}`);
 
-    res.status(200);
-    res.json(customers);
+    if (cachedData) {
+      res.status(200);
+      res.json(JSON.parse(cachedData));
+    } else {
+      const customers = await Customer.find({ company: company._id });
+
+      await client.set(
+        `customersof${userId}${company._id}`,
+        JSON.stringify(customers)
+      );
+
+      res.status(200);
+      res.json(customers);
+    }
   } catch (err) {
     console.log("err", err);
     res.status(500);
@@ -96,6 +110,8 @@ exports.addCustomer = async (req, res) => {
       company: company._id,
     });
 
+    await client.del(`customersof${userId}${company._id}`);
+
     res.status(201);
     res.json(newCustomer);
   } catch (err) {
@@ -120,6 +136,14 @@ exports.updateCustomer = async (req, res) => {
       return res.json({ message: "Customer not found" });
     }
 
+    const companyId = updatedCustomer.company._id;
+
+    const company = await Company.findOne({ _id: companyId });
+
+    const userId = company.user._id;
+
+    await client.del(`customersof${userId}${companyId}`);
+
     res.status(200);
     res.json(updatedCustomer);
   } catch (err) {
@@ -138,7 +162,16 @@ exports.removeCustomer = async (req, res) => {
         message: "Please first delete invoices related to customer!",
       });
     }
-    await Customer.findByIdAndDelete(id);
+
+    const deletedCustomer = await Customer.findByIdAndDelete(id);
+
+    const companyId = deletedCustomer.company._id;
+
+    const company = await Company.findOne({ _id: companyId });
+
+    const userId = company.user._id;
+
+    await client.del(`customersof${userId}${companyId}`);
 
     res.status(200);
     res.json({ message: "Customer removed successfully" });

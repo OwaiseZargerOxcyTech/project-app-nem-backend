@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const Company = require("../models/company");
 const Customer = require("../models/customer");
 const Invoice = require("../models/invoice");
+const Redis = require("ioredis");
 
 const {
   getCustomers,
@@ -13,6 +14,15 @@ const {
   getCustomersExport,
   importCustomer,
 } = require("../controllers/customerController");
+
+jest.mock("ioredis", () => {
+  const mRedis = {
+    del: jest.fn(),
+    get: jest.fn(),
+    set: jest.fn(),
+  };
+  return jest.fn(() => mRedis);
+});
 
 jest.mock("jsonwebtoken", () => ({
   verify: jest.fn(),
@@ -41,6 +51,7 @@ describe("getCustomers", () => {
   beforeEach(() => {
     req = { query: { token: "someToken" } };
     res = { status: jest.fn(), json: jest.fn() };
+    client = new Redis();
   });
 
   afterEach(() => {
@@ -49,15 +60,18 @@ describe("getCustomers", () => {
 
   it("should return customers for a valid token and existing company", async () => {
     const userId = "someUserId";
-    const company = { _id: "companyId1", name: "Company1" };
+    const companyId = "someCompanyId";
+    const company = { _id: companyId, name: "Company1" };
     const customers = [
-      { _id: "customerId1", name: "Customer1", company: "companyId1" },
-      { _id: "customerId2", name: "Customer2", company: "companyId1" },
+      { _id: "customerId1", name: "Customer1", company: companyId },
+      { _id: "customerId2", name: "Customer2", company: companyId },
     ];
 
     jwt.verify.mockReturnValue({ id: userId });
     Company.findOne.mockResolvedValue(company);
+    client.get.mockResolvedValueOnce(null);
     Customer.find.mockResolvedValue(customers);
+    client.set.mockResolvedValueOnce();
 
     await getCustomers(req, res);
 
@@ -69,7 +83,42 @@ describe("getCustomers", () => {
       user: userId,
       selected_company: "Y",
     });
+    expect(client.get).toHaveBeenCalledWith(`customersof${userId}${companyId}`);
     expect(Customer.find).toHaveBeenCalledWith({ company: company._id });
+    expect(client.set).toHaveBeenCalledWith(
+      `customersof${userId}${companyId}`,
+      JSON.stringify(customers)
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(customers);
+  });
+
+  it("should return customers from cache if available", async () => {
+    const userId = "someUserId";
+    const companyId = "someCompanyId";
+    const company = { _id: companyId };
+    const customers = [
+      { _id: "customerId1", name: "Customer1", company: companyId },
+      { _id: "customerId2", name: "Customer2", company: companyId },
+    ];
+
+    jwt.verify.mockReturnValueOnce({ id: userId });
+    Company.findOne.mockResolvedValueOnce(company);
+    client.get.mockResolvedValueOnce(JSON.stringify(customers));
+
+    await getCustomers(req, res);
+
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "someToken",
+      process.env.SECRET_KEY
+    );
+    expect(Company.findOne).toHaveBeenCalledWith({
+      user: userId,
+      selected_company: "Y",
+    });
+    expect(client.get).toHaveBeenCalledWith(`customersof${userId}${companyId}`);
+    expect(Customer.find).not.toHaveBeenCalled();
+    expect(client.set).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(customers);
   });
@@ -90,6 +139,8 @@ describe("getCustomers", () => {
       user: userId,
       selected_company: "Y",
     });
+    expect(client.get).not.toHaveBeenCalled();
+    expect(client.set).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ message: "Company not found" });
   });
@@ -131,13 +182,18 @@ describe("addCustomer", () => {
     json: jest.fn(),
   };
 
+  beforeEach(() => {
+    client = new Redis();
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
   });
 
   it("should create a new customer if it does not already exist", async () => {
     const userId = "someUserId";
-    const company = { _id: "companyId1", name: "Company1" };
+    const companyId = "someCompanyId";
+    const company = { _id: companyId };
     const newCustomer = {
       _id: "customerId1",
       name: "John Doe",
@@ -147,13 +203,14 @@ describe("addCustomer", () => {
       gstin: "GSTIN123",
       state: "State1",
       address: "Address1",
-      company: "companyId1",
+      company: "someCompanyId",
     };
 
     jwt.verify.mockReturnValue({ id: userId });
     Company.findOne.mockResolvedValue(company);
     Customer.findOne.mockResolvedValue(null);
     Customer.create.mockResolvedValue(newCustomer);
+    client.del.mockResolvedValue();
 
     await addCustomer(req, res);
 
@@ -167,7 +224,7 @@ describe("addCustomer", () => {
     });
     expect(Customer.findOne).toHaveBeenCalledWith({
       email: "john@example.com",
-      company: "companyId1",
+      company: "someCompanyId",
     });
     expect(Customer.create).toHaveBeenCalledWith({
       name: "John Doe",
@@ -177,8 +234,11 @@ describe("addCustomer", () => {
       gstin: "GSTIN123",
       state: "State1",
       address: "Address1",
-      company: "companyId1",
+      company: "someCompanyId",
     });
+    expect(client.del).toHaveBeenCalledWith(
+      `customersof${userId}${company._id}`
+    );
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(newCustomer);
   });
@@ -253,6 +313,10 @@ describe("updateCustomer", () => {
     json: jest.fn(),
   };
 
+  beforeEach(() => {
+    client = new Redis();
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
   });
@@ -267,9 +331,16 @@ describe("updateCustomer", () => {
       gstin: "GSTIN456",
       state: "Updated State",
       address: "Updated Address",
+      company: { _id: "companyId" },
     };
 
+    const company = { _id: "companyId", user: { _id: "userId" } };
+
     Customer.findOneAndUpdate.mockResolvedValue(updatedCustomer);
+
+    Company.findOne.mockResolvedValue(company);
+
+    client.del.mockResolvedValue();
 
     await updateCustomer(req, res);
 
@@ -286,6 +357,8 @@ describe("updateCustomer", () => {
       },
       { new: true }
     );
+    expect(Company.findOne).toHaveBeenCalledWith({ _id: "companyId" });
+    expect(client.del).toHaveBeenCalledWith("customersofuserIdcompanyId");
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(updatedCustomer);
   });
@@ -349,18 +422,31 @@ describe("removeCustomer", () => {
     json: jest.fn(),
   };
 
+  beforeEach(() => {
+    client = new Redis();
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
   });
 
   it("should remove a customer if there are no related invoices", async () => {
+    const deletedCustomer = {
+      _id: "customerId",
+      company: { _id: "companyId" },
+    };
+    const company = { _id: "companyId", user: { _id: "userId" } };
     Invoice.find.mockResolvedValue([]);
-    Customer.findByIdAndDelete.mockResolvedValue(true);
+    Customer.findByIdAndDelete.mockResolvedValue(deletedCustomer);
+    Company.findOne.mockResolvedValue(company);
+    client.del.mockResolvedValue();
 
     await removeCustomer(req, res);
 
     expect(Invoice.find).toHaveBeenCalledWith({ customer: "customerId1" });
     expect(Customer.findByIdAndDelete).toHaveBeenCalledWith("customerId1");
+    expect(Company.findOne).toHaveBeenCalledWith({ _id: "companyId" });
+    expect(client.del).toHaveBeenCalledWith("customersofuserIdcompanyId");
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
       message: "Customer removed successfully",
