@@ -163,7 +163,7 @@ exports.removeItem = async (req, res) => {
 
     const companyId = deletedItem.company._id;
 
-    const company = await Company.find({ _id: companyId });
+    const company = await Company.findOne({ _id: companyId });
 
     const userId = company.user._id;
 
