@@ -3,6 +3,8 @@ const Company = require("../models/company");
 const Customer = require("../models/customer");
 const Invoice = require("../models/invoice");
 const Item = require("../models/item");
+const redis = require("ioredis");
+const client = new redis();
 require("dotenv").config();
 
 exports.createInvoice = async (req, res) => {
@@ -62,6 +64,8 @@ exports.createInvoice = async (req, res) => {
       invoices.push(invoice);
     }
 
+    await client.del(`invoicesof${userId}${company._id}`);
+
     res.status(200);
     res.json(invoices);
   } catch (err) {
@@ -86,17 +90,29 @@ exports.getInvoiceByCompany = async (req, res) => {
       return res.json({ message: "Company not found" });
     }
 
-    let invoices = await Invoice.find({ company: company._id });
+    const cachedData = await client.get(`invoicesof${userId}${company._id}`);
 
-    invoices = await Promise.all(
-      invoices.map(async (invoice) => {
-        const customer = await Customer.findOne({ _id: invoice.customer });
-        return { ...invoice._doc, customer_name: customer.name };
-      })
-    );
+    if (cachedData) {
+      res.status(200);
+      res.json(JSON.parse(cachedData));
+    } else {
+      let invoices = await Invoice.find({ company: company._id });
 
-    res.status(200);
-    res.json(invoices);
+      invoices = await Promise.all(
+        invoices.map(async (invoice) => {
+          const customer = await Customer.findOne({ _id: invoice.customer });
+          return { ...invoice._doc, customer_name: customer.name };
+        })
+      );
+
+      await client.set(
+        `invoicesof${userId}${company._id}`,
+        JSON.stringify(invoices)
+      );
+
+      res.status(200);
+      res.json(invoices);
+    }
   } catch (err) {
     res.status(500);
     res.json({ message: err.message });
@@ -121,6 +137,11 @@ exports.removeInvoice = async (req, res) => {
     }
 
     await Invoice.deleteMany({ invoice_number, company: company._id });
+
+    await client.del(`invoicesof${userId}${company._id}`);
+
+    await client.del(`invoiceof${userId}${company._id}${invoice_number}`);
+
     res.status(200);
     res.json({ message: "Invoices removed successfully" });
   } catch (err) {
@@ -145,19 +166,36 @@ exports.getInvoice = async (req, res) => {
       return res.json({ message: "Company not found" });
     }
 
-    const invoice = await Invoice.find({
-      invoice_number,
-      company: company._id,
-    })
-      .populate("company")
-      .populate("customer")
-      .populate("item");
+    const cachedData = await client.get(
+      `invoiceof${userId}${company._id}${invoice_number}`
+    );
 
-    if (!invoice) {
-      return res.status(404).json({ message: "Invoice not found" });
+    if (cachedData) {
+      res.status(200);
+      res.json(JSON.parse(cachedData));
+    } else {
+      const invoice = await Invoice.find({
+        invoice_number,
+        company: company._id,
+      })
+        .populate("company")
+        .populate("customer")
+        .populate("item");
+
+      if (!invoice) {
+        return res.status(400).json({ message: "Invoice not found" });
+      }
+
+      if (invoice.length > 0) {
+        await client.set(
+          `invoiceof${userId}${company._id}${invoice_number}`,
+          JSON.stringify(invoice)
+        );
+      }
+
+      res.status(200);
+      res.json(invoice);
     }
-    res.status(200);
-    res.json(invoice);
   } catch (err) {
     res.status(500);
     res.json({ message: err.message });
