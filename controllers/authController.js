@@ -155,3 +155,68 @@ exports.getUser = async (req, res) => {
     res.json({ message: err.message });
   }
 };
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(200).json({ message: "User not found" });
+    }
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+
+    user.resetotp = otp;
+    await user.save();
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.SMTP_USER,
+      to: email,
+      subject: "Password Reset",
+      html: `<p>Use this OTP: <strong>${otp}</strong> to reset your password. Use the link: <a href="http://localhost:5173/reset-password">Reset Password</a></p>`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({ message: "Reset email sent successfully!" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { otp, newPassword } = req.body;
+
+    const user = await User.findOne({ resetotp: otp });
+    if (!user) {
+      return res.status(400).json({ error: "Invalid or expired token" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+    user.resetotp = null;
+    await user.save();
+
+    res.status(200).json({ message: "Password reset successfully!" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
