@@ -9,5 +9,9 @@ router.post("/verify-email", authController.verifyEmail);
 router.get("/get-user", authController.getUser);
 router.post("/forgot-password", authController.forgotPassword);
 router.post("/reset-password", authController.resetPassword);
+router.get("/get-access-token", authController.getAccessToken);
+router.get("/get-user-data", authController.getUserData);
+router.get("/get-user-email", authController.getUserEmail);
+router.post("/log", authController.log);
 
 module.exports = router;
